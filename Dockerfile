@@ -13,7 +13,7 @@ ENV PATH="/opt/conda/bin:$PATH"
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN python download_model.py \
-        --model_name Qwen/Qwen3-1.7B \
+        --model_name qinglandesu/GPUclass_qwen0 \
         --cache_dir /app \
         --revision master
 

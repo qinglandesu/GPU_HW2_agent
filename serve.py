@@ -34,7 +34,8 @@ count = 1
 
 # 模型本地路径映射字典
 model_local_dict = {
-    "Qwen/Qwen3-1.7B": "/app/Qwen/Qwen3-1.7B"
+    "Qwen/Qwen3-1.7B": "/app/Qwen/Qwen3-1.7B",
+    "GPUclass_qwen0": "/app/qinglandesu/GPUclass_qwen0",
 }
 
 @asynccontextmanager
@@ -46,11 +47,11 @@ async def initializationEngine(app: FastAPI):
     try:
         system_prompt = """你是一名专业的GPU编程教材内容整理助手，请直接回答问题，**只回答一次**，不要续写问题本身，不要添加任何额外的问题或评估。"""
         engine_args = AsyncEngineArgs(
-            model=model_local_dict["Qwen/Qwen3-1.7B"],
+            model=model_local_dict["GPUclass_qwen0"],
             tensor_parallel_size=1,
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
-            max_num_seqs=64,  # 增加最大并发序列数以支持batch
+            max_num_seqs=256,  # 增加最大并发序列数以支持batch
             max_model_len=1024  # 设置最大模型长度
         )
         app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -113,27 +114,26 @@ async def predict(request: PredictionRequest):
     # 格式化所有prompts
     formatted_prompts = []
     for prompt_text in prompts:
-        formatted_prompt = f"""{system_prompt}
-请根据以上角色要求，回答以下问题：
-问题：{prompt_text}
-回答："""
+        formatted_prompt = f"""
+###问题：{prompt_text}
+###回答："""
         formatted_prompts.append(formatted_prompt)
     
     # 定义采样参数
     sampling_params = SamplingParams(
-        temperature=0.5,
-        top_p=0.9,
-        top_k=50,
+        temperature=0.1,
+        #top_p=0.9,
+        #top_k=40,
         max_tokens=300,
         stop=[
             "\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
-            "\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答",
-            "\n是否正确", "\n是否准确", "\n是否错误", "\n如果有误", "\n如果错误", "\n请指出",
+            "\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
             "\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意",
-            "？\n", "?\n", "###", "---", "'''", "```", "<|endoftext|>",
+            "（回答", "（字数",
+            "###", "---", "'''", "```", "<|endoftext|>",
         ],
-        repetition_penalty=1.3,
-        frequency_penalty=0.5,
+        #repetition_penalty=1.3,
+        #frequency_penalty=0.5,
     )
     
     # 生成请求ID列表
@@ -180,6 +180,7 @@ async def predict(request: PredictionRequest):
     # 如果是批量请求，返回字符串列表
     return PredictionResponse(response=processed_responses)
 
+
 @app.get("/")
 def health_check():
     '''
@@ -188,5 +189,5 @@ def health_check():
     return {"status": "batch"}
 
 
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
