@@ -113,15 +113,20 @@ async def predict(request: PredictionRequest):
     
     # 格式化所有prompts
     formatted_prompts = []
-    for prompt_text in prompts:
-        formatted_prompt = f"""
-###问题：{prompt_text}
-###回答："""
+    for prompt_text in prompts: #
+        formatted_prompt = f"""{system_prompt}
+
+现在请回答以下问题：
+
+###问题:
+{prompt_text}
+
+###回答:"""
         formatted_prompts.append(formatted_prompt)
     
     # 定义采样参数
     sampling_params = SamplingParams(
-        temperature=0.1,
+        temperature=0.2,
         #top_p=0.9,
         #top_k=40,
         max_tokens=300,
@@ -129,7 +134,7 @@ async def predict(request: PredictionRequest):
             "\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
             "\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
             "\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意",
-            "（回答", "（字数",
+            "仅回答", "（回答", "(回答", "（字数", "(字数", "（注", "(注",
             "###", "---", "'''", "```", "<|endoftext|>",
         ],
         #repetition_penalty=1.3,
