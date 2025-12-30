@@ -57,6 +57,31 @@ async def initializationEngine(app: FastAPI):
         app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
         app.state.system_prompt = system_prompt
         print("vLLM engine initialized successfully!")
+
+        # 预热模型（关键部分）
+        print("开始预热模型...")
+        warmup_prompt = "什么是CUDA？"  # 简短的预热提示
+        sampling_params = SamplingParams(
+            temperature=0.2,
+            max_tokens=100,
+            stop=["\n"]
+        )
+        try:
+            # 发送一个预热请求
+            results_generator = app.state.engine.generate(
+                warmup_prompt, 
+                sampling_params, 
+                "warmup_request"
+            )
+            # 异步获取结果
+            async for request_output in results_generator:
+                if request_output.outputs:
+                    _ = request_output.outputs[0].text  # 确保生成完成
+                    break
+            print("模型预热完成！")
+        except Exception as e:
+            print(f"模型预热失败（不影响正常服务）: {e}")
+    
     except Exception as e:
         print(f"Engine initialization failed: {e}")
         raise
