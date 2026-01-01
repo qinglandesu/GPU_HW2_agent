@@ -52,7 +52,9 @@ async def initializationEngine(app: FastAPI):
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
             max_num_seqs=256,  # 增加最大并发序列数以支持batch
-            max_model_len=1024  # 设置最大模型长度
+            max_model_len=512,  # 设置最大模型长度
+            max_num_batched_tokens=4096,   # 新增：提高批处理token数量
+            enable_prefix_caching=True,    # 新增：启用前缀缓存（显著提速）
         )
         app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
         app.state.system_prompt = system_prompt
@@ -60,10 +62,17 @@ async def initializationEngine(app: FastAPI):
 
         # 预热模型（关键部分）
         print("开始预热模型...")
-        warmup_prompt = "什么是CUDA？"  # 简短的预热提示
+        warmup_prompt = f"""{system_prompt}
+
+现在请回答以下问题：
+
+###问题:
+什么是CUDA？
+
+###回答:"""  # 简短的预热提示
         sampling_params = SamplingParams(
             temperature=0.2,
-            max_tokens=100,
+            max_tokens=10,
             stop=["\n"]
         )
         try:
@@ -156,10 +165,10 @@ async def predict(request: PredictionRequest):
         #top_k=40,
         max_tokens=300,
         stop=[
-            "\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
-            "\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
-            "\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意",
-            "仅回答", "（回答", "(回答", "（字数", "(字数", "（注", "(注",
+            #"\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
+            #"\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
+            #"\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意",
+            #"仅回答", "（回答", "(回答", "（字数", "(字数", "（注", "(注",
             "###", "---", "'''", "```", "<|endoftext|>",
         ],
         #repetition_penalty=1.3,
