@@ -37,6 +37,9 @@ model_local_dict = {
     "Qwen/Qwen3-1.7B": "/app/Qwen/Qwen3-1.7B",
     "GPUclass_qwen0": "/app/qinglandesu/GPUclass_qwen0",
     "GPUclass_qwen1": "/app/qinglandesu/GPUclass_qwen1",
+    "GPUclass_qwen2": "/app/qinglandesu/GPUclass_qwen2",
+    "GPUclass_qwen3": "/app/qinglandesu/GPUclass_qwen3",
+    "GPUclass_qwen4": "/app/qinglandesu/GPUclass_qwen4",
 }
 
 @asynccontextmanager
@@ -46,14 +49,14 @@ async def initializationEngine(app: FastAPI):
     '''
     print("Initializing vLLM engine...")
     try:
-        system_prompt = """你是一名专业的GPU编程教材内容整理助手，请直接回答问题，**只回答一次**，不要续写问题本身，不要添加任何额外的问题或评估。"""
+        system_prompt = """你是一位精通GPU体系结构、CUDA编程、Triton、cuTile、Tilelang算子开发的顶级技术专家，你的回答详细准确，不少于180字。"""
         engine_args = AsyncEngineArgs(
-            model=model_local_dict["GPUclass_qwen1"],
+            model=model_local_dict["GPUclass_qwen4"],
             tensor_parallel_size=1,
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
-            max_num_seqs=300,  # 增加最大并发序列数以支持batch
-            max_model_len=512,  # 设置最大模型长度
+            max_num_seqs=512,  # 增加最大并发序列数以支持batch
+            max_model_len=1024,  # 设置最大模型长度
             #max_num_batched_tokens=4096,   # 新增：提高批处理token数量
             enable_prefix_caching=True,    # 新增：启用前缀缓存（显著提速）
         )
@@ -78,7 +81,7 @@ async def initializationEngine(app: FastAPI):
 现在请回答以下问题：
 
 ###问题:
-CUDA中的核函数是什么？
+CUDA中矩阵乘法算子如何利用共享内存减少全局内存访问？
 
 ###回答:""",
             f"""{system_prompt}
@@ -86,15 +89,7 @@ CUDA中的核函数是什么？
 现在请回答以下问题：
 
 ###问题:
-什么是CUDA中的控制流发散？
-
-###回答:""",
-            f"""{system_prompt}
-
-现在请回答以下问题：
-
-###问题:
-什么是浮点数的非规格化（denormal）数？
+GPU架构的L1缓存写回策略对卷积算子有何影响？
 
 ###回答:"""
         ]
@@ -184,7 +179,7 @@ async def predict(request: PredictionRequest):
         temperature=0.2,
         #top_p=0.9,
         #top_k=40,
-        max_tokens=300,
+        max_tokens=500,
         stop=[
             #"\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
             #"\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
