@@ -36,6 +36,7 @@ count = 1
 model_local_dict = {
     "Qwen/Qwen3-1.7B": "/app/Qwen/Qwen3-1.7B",
     "GPUclass_qwen0": "/app/qinglandesu/GPUclass_qwen0",
+    "GPUclass_qwen1": "/app/qinglandesu/GPUclass_qwen1",
 }
 
 @asynccontextmanager
@@ -47,13 +48,13 @@ async def initializationEngine(app: FastAPI):
     try:
         system_prompt = """你是一名专业的GPU编程教材内容整理助手，请直接回答问题，**只回答一次**，不要续写问题本身，不要添加任何额外的问题或评估。"""
         engine_args = AsyncEngineArgs(
-            model=model_local_dict["GPUclass_qwen0"],
+            model=model_local_dict["GPUclass_qwen1"],
             tensor_parallel_size=1,
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
             max_num_seqs=256,  # 增加最大并发序列数以支持batch
             max_model_len=512,  # 设置最大模型长度
-            max_num_batched_tokens=4096,   # 新增：提高批处理token数量
+            #max_num_batched_tokens=4096,   # 新增：提高批处理token数量
             enable_prefix_caching=True,    # 新增：启用前缀缓存（显著提速）
         )
         app.state.engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -178,12 +179,6 @@ async def predict(request: PredictionRequest):
     # 生成请求ID列表
     request_ids = [str(count + i) for i in range(len(formatted_prompts))]
     count += len(formatted_prompts)
-    
-    # 创建生成任务列表
-    generation_tasks = []
-    for prompt_text, request_id in zip(formatted_prompts, request_ids):
-        task = engine.generate(prompt_text, sampling_params, request_id)
-        generation_tasks.append(task)
     
     # 创建并行任务 - 真正的并行处理
     tasks = []
