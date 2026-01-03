@@ -52,7 +52,7 @@ async def initializationEngine(app: FastAPI):
             tensor_parallel_size=1,
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
-            max_num_seqs=256,  # 增加最大并发序列数以支持batch
+            max_num_seqs=300,  # 增加最大并发序列数以支持batch
             max_model_len=512,  # 设置最大模型长度
             #max_num_batched_tokens=4096,   # 新增：提高批处理token数量
             enable_prefix_caching=True,    # 新增：启用前缀缓存（显著提速）
@@ -63,32 +63,64 @@ async def initializationEngine(app: FastAPI):
 
         # 预热模型（关键部分）
         print("开始预热模型...")
-        warmup_prompt = f"""{system_prompt}
+        # 多个预热提示（覆盖不同类型的GPU相关问题）
+        warmup_prompts = [
+            f"""{system_prompt}
 
 现在请回答以下问题：
 
 ###问题:
 什么是CUDA？
 
-###回答:"""  # 简短的预热提示
+###回答:""",
+            f"""{system_prompt}
+
+现在请回答以下问题：
+
+###问题:
+CUDA中的核函数是什么？
+
+###回答:""",
+            f"""{system_prompt}
+
+现在请回答以下问题：
+
+###问题:
+什么是CUDA中的控制流发散？
+
+###回答:""",
+            f"""{system_prompt}
+
+现在请回答以下问题：
+
+###问题:
+什么是浮点数的非规格化（denormal）数？
+
+###回答:"""
+        ]
+        
+        # 统一的预热采样参数（限制短输出，加快预热速度）
         sampling_params = SamplingParams(
             temperature=0.2,
-            max_tokens=10,
+            max_tokens=20,  # 短输出长度，加速预热
             stop=["\n"]
         )
+        
         try:
-            # 发送一个预热请求
-            results_generator = app.state.engine.generate(
-                warmup_prompt, 
-                sampling_params, 
-                "warmup_request"
-            )
-            # 异步获取结果
-            async for request_output in results_generator:
-                if request_output.outputs:
-                    _ = request_output.outputs[0].text  # 确保生成完成
-                    break
-            print("模型预热完成！")
+            # 依次处理每个预热提示
+            for i, warmup_prompt in enumerate(warmup_prompts, 1):
+                results_generator = app.state.engine.generate(
+                    warmup_prompt,
+                    sampling_params,
+                    f"warmup_request_{i}"  # 区分不同预热请求的ID
+                )
+                # 异步获取结果，确保生成完成
+                async for request_output in results_generator:
+                    if request_output.outputs:
+                        _ = request_output.outputs[0].text
+                        break
+                print(f"预热提示 {i}/{len(warmup_prompts)} 处理完成")
+            print("所有预热提示处理完毕，模型预热完成！")
         except Exception as e:
             print(f"模型预热失败（不影响正常服务）: {e}")
     
@@ -99,18 +131,6 @@ async def initializationEngine(app: FastAPI):
     print("Shutting down vLLM engine...")
 
 app = FastAPI(title="vLLM Service", lifespan=initializationEngine)
-
-async def generate_single(engine, formatted_prompt: str, sampling_params: SamplingParams, request_id: str) -> str:
-    """
-    单个prompt的生成函数
-    """
-    results_generator = engine.generate(formatted_prompt, sampling_params, request_id)
-    final_output = None
-    async for request_output in results_generator:
-        final_output = request_output
-    if final_output and final_output.outputs:
-        return final_output.outputs[0].text.strip()
-    return ""
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
@@ -182,12 +202,12 @@ async def predict(request: PredictionRequest):
     
     # 创建并行任务 - 真正的并行处理
     tasks = []
-    for formatted_prompt, request_id in zip(formatted_prompts, request_ids):
-        # 为每个prompt创建异步任务
-        task = asyncio.create_task(
-            generate_single(engine, formatted_prompt, sampling_params, request_id)
-        )
-        tasks.append(task)
+    for prompt_text, request_id in zip(formatted_prompts, request_ids):
+        async def gen_task(prompt, req_id):
+            async for output in engine.generate(prompt, sampling_params, req_id):
+                pass  # 等待生成完成
+            return output.outputs[0].text.strip() if output.outputs else ""
+        tasks.append(asyncio.create_task(gen_task(prompt_text, request_id)))
     
     # 等待所有任务完成（并行执行）
     responses = await asyncio.gather(*tasks, return_exceptions=True)
