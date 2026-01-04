@@ -51,7 +51,7 @@ async def initializationEngine(app: FastAPI):
     try:
         system_prompt = """你是一位精通GPU体系结构、CUDA编程、Triton、cuTile、Tilelang算子开发的顶级技术专家，你的回答详细准确，不少于180字。"""
         engine_args = AsyncEngineArgs(
-            model=model_local_dict["GPUclass_qwen4"],
+            model=model_local_dict["GPUclass_qwen3"],
             tensor_parallel_size=1,
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
@@ -183,9 +183,9 @@ async def predict(request: PredictionRequest):
         stop=[
             #"\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
             #"\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
-            #"\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意",
+            "\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意","\n\n你的",
             #"仅回答", "（回答", "(回答", "（字数", "(字数", "（注", "(注",
-            "###", "---", "'''", "```", "<|endoftext|>",
+            "\n\n\n", "###", "---", "'''", "```", "<|endoftext|>",
         ],
         #repetition_penalty=1.3,
         #frequency_penalty=0.5,
