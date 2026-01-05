@@ -40,6 +40,7 @@ model_local_dict = {
     "GPUclass_qwen2": "/app/qinglandesu/GPUclass_qwen2",
     "GPUclass_qwen3": "/app/qinglandesu/GPUclass_qwen3",
     "GPUclass_qwen4": "/app/qinglandesu/GPUclass_qwen4",
+    "GPUclass_qwen5": "/app/qinglandesu/GPUclass_qwen5",
 }
 
 @asynccontextmanager
@@ -51,11 +52,11 @@ async def initializationEngine(app: FastAPI):
     try:
         system_prompt = """你是一位精通GPU体系结构、CUDA编程、Triton、cuTile、Tilelang算子开发的顶级技术专家，你的回答详细准确，不少于180字。"""
         engine_args = AsyncEngineArgs(
-            model=model_local_dict["GPUclass_qwen2"],
+            model=model_local_dict["GPUclass_qwen5"],
             tensor_parallel_size=1,
             gpu_memory_utilization=0.8,
             trust_remote_code=True,
-            max_num_seqs=512,  # 增加最大并发序列数以支持batch
+            max_num_seqs=384,  # 增加最大并发序列数以支持batch
             max_model_len=1024,  # 设置最大模型长度
             #max_num_batched_tokens=4096,   # 新增：提高批处理token数量
             enable_prefix_caching=True,    # 新增：启用前缀缓存（显著提速）
@@ -177,15 +178,16 @@ async def predict(request: PredictionRequest):
     # 定义采样参数
     sampling_params = SamplingParams(
         temperature=0.3,
-        #top_p=0.9,
-        #top_k=40,
-        max_tokens=500,
+        top_p=0.9,
+        top_k=50,
+        min_tokens=50,
+        max_tokens=300,
         stop=[
             #"\n问题：", "\n问：", "\n你是否", "\n好的，", "\n接下来",
             #"\n这个描述", "\n上述描述", "\n这个回答", "\n以上回答", "\n请指出",
             "\n\n现在", "\n\n这个", "\n\n好的", "\n\n注意","\n\n你的",
-            #"仅回答", "（回答", "(回答", "（字数", "(字数", "（注", "(注",
-            "\n\n\n", "###", "---", "'''", "```", "<|endoftext|>",
+            "仅回答", "（回答", "(回答", "（字数", "(字数", "（注", "(注",
+            "\n\n\n", "###", "###问题", "---", "'''", "```", "<|endoftext|>",
         ],
         #repetition_penalty=1.3,
         #frequency_penalty=0.5,
